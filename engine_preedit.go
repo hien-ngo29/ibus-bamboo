@@ -31,31 +31,14 @@ import (
 )
 
 func (e *IBusBambooEngine) preeditProcessKeyEvent(keyVal uint32, keyCode uint32, state uint32) (bool, *dbus.Error) {
-	var rawKeyLen = e.getRawKeyLen()
-	var oldText = e.getPreeditString()
 	defer e.updateLastKeyWithShift(keyVal, state)
 
 	if keyVal == IBusBackSpace {
-		if e.runeCount() == 1 {
-			e.commitPreeditAndReset("")
-			return true, nil
-		}
-		if rawKeyLen > 0 {
-			e.preeditor.RemoveLastChar(true)
-			e.updatePreedit(e.getPreeditString())
-			return true, nil
-		} else {
-			return false, nil
-		}
+		return e.processBackspaceKey()
 	}
+
 	if keyVal == IBusTab {
-		if ok, macText := e.getMacroText(); ok {
-			e.commitPreeditAndReset(macText)
-		} else {
-			e.commitPreeditAndReset(e.getComposedString(oldText))
-			return false, nil
-		}
-		return true, nil
+		return e.processTabKey()
 	}
 
 	newText, isWordBreakRune := e.getCommitText(keyVal, keyCode, state)
@@ -66,6 +49,29 @@ func (e *IBusBambooEngine) preeditProcessKeyEvent(keyVal uint32, keyCode uint32,
 	}
 	e.updatePreedit(newText)
 	return isPrintableKey, nil
+}
+
+func (e *IBusBambooEngine) processBackspaceKey() (bool, *dbus.Error) {
+	if e.runeCount() == 1 {
+		e.commitPreeditAndReset("")
+		return true, nil
+	}
+	if e.getRawKeyLen() > 0 {
+		e.preeditor.RemoveLastChar(true)
+		e.updatePreedit(e.getPreeditString())
+		return true, nil
+	}
+	return false, nil
+}
+
+func (e *IBusBambooEngine) processTabKey() (bool, *dbus.Error) {
+	if ok, macText := e.getMacroText(); ok {
+		e.commitPreeditAndReset(macText)
+	} else {
+		e.commitPreeditAndReset(e.getComposedString(e.getPreeditString()))
+		return false, nil
+	}
+	return true, nil
 }
 
 func (e *IBusBambooEngine) expandMacro(str string) string {
